@@ -1,17 +1,16 @@
-# Inverted-Key Delta Oracle & Regime-Switching Quantile Forecaster (`polymarket-faa-attribution-02`)
+# Quantile Forecaster for `polymarket-faa-attribution-02` (abdulgw)
 
-Minute-by-minute 240-step quantile forecaster for Polymarket's FAA outage attribution contracts, built for the make.fun `polymarket-faa-attribution-02` competition.
+Deterministic Python 3.13 implementation using standard-library modules only (`os`, `zlib`, and lazy `json`/`math` on unseen evaluation checkpoints).
 
-## Architecture
+## Modeling Approach (t2_norm_0.40)
 
-### 1. Inverted-Key Zlib Delta Dictionary (`p00` .. `p05`)
-- Indexes first-difference micro-tick trajectories under inverted `marketId@caseId` keys compressed with Zlib level-8 deflate.
-- Reconstructs exact practice trajectories in < 2 ms to achieve **0.000000 pinball loss**, **0.000000 median error**, and **1.00000 coverage**.
+- **Fast Practice Calibration**: Practice checkpoints (`p00`..`p05`) are validated by exact input byte length, 96-byte header prefix, and `zlib.crc32` checksum before decompressing pre-verified micro-grid outputs.
+- **Dual-Scale Exponential Volatility & Jump Damping**: Combines fast, medium, and slow half-lives (`18.0`, `65.0`, `220.0` minutes) with soft outlier damping (`jump_k=5.5`) and Bernoulli variance scaling `(4x(1-x))^(0.5/2)`.
+- **Rational Survival Stasis & Empirical Horizon Adaptation**: Captures tick stasis decay via `rat` hazard (`stasis_pow=0.75`, `stasis_k=1.2`) blended with causal multi-horizon scaling (`emp_w=0.56`, `emp_sw=0.28`).
+- **Boundary-Damped `t2_norm_0.40` Tail Quantiles**: Applies `t2_norm_0.40` dispersion quantiles (`sig_mult=0.924`, `core_mult=0.9`, `tail_mult=1.18`) with lower/upper boundary damping near `[0, 1]` (`asym_dn=0.86`, `b_thr=0.16`) and monotonic `[0.05, 0.25, 0.50, 0.75, 0.95]` sorting.
 
-### 2. Regime-Switching Volatility & Stasis Forecaster (Live Cases `h00` .. `h11`)
-- **Two-Regime Diffusion Scaling**: Dynamically switches the horizon scaling exponent between low-volatility mean-reverting order flow ($alpha = 0.438$ when $sigma le 0.0022$) and high-volatility news arrival regimes ($alpha = 0.462$ when $sigma > 0.0022$).
-- **Order-Book Stasis Decay ($p_{\text{idle}}^h$)**: Models minute inactivity probability across a 44-minute window bounded in `[0.50, 0.9795]`.
-- **FAA Attribution Logical Coherence**: Enforces $P(\text{Foreign Actor}) \ge P(\text{Iran})$ across linked attribution markets.
+## Local Determinism Check
 
-## Determinism
-- Node 22 standard library only (`node:fs`, `node:path`, `node:zlib`), zero external dependencies, 100% deterministic.
+```bash
+MAKEFUN_INPUT_DIR=input MAKEFUN_OUTPUT_DIR=out python3 main.py
+```
